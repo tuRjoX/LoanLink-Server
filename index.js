@@ -214,3 +214,32 @@ async function run() {
 
     app.post("/api/loans", verifyToken, verifyManager, async (req, res) => {
       try {
+        const loan = {
+          ...req.body,
+          createdBy: req.user.email,
+          createdAt: new Date(),
+          showOnHome: req.body.showOnHome || false,
+        };
+        const result = await loansCollection.insertOne(loan);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to create loan" });
+      }
+    });
+
+    app.patch(
+      "/api/loans/:id",
+      verifyToken,
+      verifyManager,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const updateDoc = {
+            $set: {
+              ...req.body,
+              updatedAt: new Date(),
+            },
+          };
+          const result = await loansCollection.updateOne(
+            { _id: new ObjectId(id) },
+            updateDoc,
