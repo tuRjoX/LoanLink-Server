@@ -516,5 +516,36 @@ async function run() {
       }
     });
 
+    app.get("/api/payments/application/:id", verifyToken, async (req, res) => {
+      try {
+        const applicationId = req.params.id;
+        const result = await paymentsCollection.findOne({ applicationId });
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch payment" });
+      }
+    });
+
+    app.get("/api/stats/admin", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const totalLoans = await loansCollection.countDocuments();
+        const totalApplications = await applicationsCollection.countDocuments();
+        const pendingApplications = await applicationsCollection.countDocuments(
+          { status: "pending" },
+        );
+        const approvedApplications =
+          await applicationsCollection.countDocuments({ status: "approved" });
+        const totalUsers = await usersCollection.countDocuments();
+        res.send({
+          totalLoans,
+          totalApplications,
+          pendingApplications,
+          approvedApplications,
+          totalUsers,
+        });
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch admin stats" });
+      }
+    });
 
 
