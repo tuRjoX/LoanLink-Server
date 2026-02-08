@@ -548,4 +548,56 @@ async function run() {
       }
     });
 
+    app.get(
+      "/api/stats/manager/:email",
+      verifyToken,
+      verifyManager,
+      async (req, res) => {
+        try {
+          const email = req.params.email;
+          const myLoans = await loansCollection.countDocuments({
+            createdBy: email,
+          });
+          const pendingApplications =
+            await applicationsCollection.countDocuments({ status: "pending" });
+          const approvedApplications =
+            await applicationsCollection.countDocuments({ status: "approved" });
+          res.send({
+            myLoans,
+            pendingApplications,
+            approvedApplications,
+          });
+        } catch (err) {
+          res.status(500).send({ message: "Failed to fetch manager stats" });
+        }
+      },
+    );
 
+    if (!process.env.VERCEL) {
+      app.listen(port, () => {
+        console.log(`LoanLink Server is running on port ${port}`);
+      });
+    }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
+}
+
+const appReadyPromise = run().catch((err) => {
+  console.error("Server startup failed:", err);
+  throw err;
+});
+
+function vercelHandler(req, res) {
+  appReadyPromise
+    .then(() => {
+      app(req, res);
+    })
+    .catch(() => {
+      res
+        .status(503)
+        .json({ message: "Server initializing or database unavailable" });
+    });
+}
+
+module.exports = process.env.VERCEL ? vercelHandler : app;
