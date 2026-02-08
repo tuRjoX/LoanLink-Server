@@ -291,6 +291,71 @@ async function run() {
                 },
               ],
             };
+          }
+          const loans = await loansCollection
+            .find(query)
+            .sort({ createdAt: -1 })
+            .toArray();
+          res.send({ loans });
+        } catch (err) {
+          res.status(500).send({ message: "Failed to fetch manager loans" });
+        }
+      },
+    );
+
+    app.post("/api/applications", verifyToken, async (req, res) => {
+      try {
+        const application = {
+          ...req.body,
+          status: "pending",
+          applicationFeeStatus: "unpaid",
+          appliedAt: new Date(),
+        };
+        const result = await applicationsCollection.insertOne(application);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to create application" });
+      }
+    });
+
+    app.get("/api/applications", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const { status } = req.query;
+        let query = {};
+        if (status && status !== "all") query.status = status;
+        const result = await applicationsCollection
+          .find(query)
+          .sort({ appliedAt: -1 })
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch applications" });
+      }
+    });
+
+    app.get(
+      "/api/applications/pending",
+      verifyToken,
+      verifyManager,
+      async (req, res) => {
+        try {
+          const result = await applicationsCollection
+            .find({ status: "pending" })
+            .sort({ appliedAt: -1 })
+            .toArray();
+          res.send(result);
+        } catch (err) {
+          res
+            .status(500)
+            .send({ message: "Failed to fetch pending applications" });
+        }
+      },
+    );
+
+    app.get(
+      "/api/applications/approved",
+      verifyToken,
+      verifyManager,
 
 
 
