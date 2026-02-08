@@ -356,6 +356,54 @@ async function run() {
       "/api/applications/approved",
       verifyToken,
       verifyManager,
+      async (req, res) => {
+        try {
+          const result = await applicationsCollection
+            .find({ status: "approved" })
+            .sort({ approvedAt: -1 })
+            .toArray();
+          res.send(result);
+        } catch (err) {
+          res
+            .status(500)
+            .send({ message: "Failed to fetch approved applications" });
+        }
+      },
+    );
+
+    app.get("/api/applications/user/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.user.email)
+        return res.status(403).send({ message: "Forbidden access" });
+      try {
+        const result = await applicationsCollection
+          .find({ $or: [{ userEmail: email }, { applicantEmail: email }] })
+          .sort({ appliedAt: -1 })
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch applications" });
+      }
+    });
+
+    app.get("/api/applications/:id", verifyToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await applicationsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!result)
+          return res.status(404).send({ message: "Application not found" });
+        res.send(result);
+      } catch (err) {
+        res.status(400).send({ message: "Invalid application ID" });
+      }
+    });
+
+    app.patch(
+      "/api/applications/:id",
+      verifyToken,
+      verifyManager,
 
 
 
