@@ -157,3 +157,35 @@ async function run() {
       const id = req.params.id;
       const { role, status, suspendReason } = req.body;
       const updateDoc = {
+        $set: {
+          ...(role && { role }),
+          ...(status && { status }),
+          ...(suspendReason && { suspendReason }),
+          updatedAt: new Date(),
+        },
+      };
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc,
+      );
+      res.send(result);
+    });
+
+    app.get("/api/loans", async (req, res) => {
+      try {
+        const { page = 1, limit = 6, showOnHome, search, category } = req.query;
+        let query = {};
+        if (showOnHome === "true") query.showOnHome = true;
+        if (search) {
+          query.$or = [
+            { title: { $regex: search, $options: "i" } },
+            { category: { $regex: search, $options: "i" } },
+          ];
+        }
+        if (category) query.category = category;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const loans = await loansCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
