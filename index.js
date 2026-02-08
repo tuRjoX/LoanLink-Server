@@ -65,3 +65,68 @@ const verifyToken = (req, res, next) => {
   });
 };
 
+const verifyAdmin = async (req, res, next) => {
+  const email = req.user?.email;
+  const user = await client
+    .db(process.env.DB_NAME)
+    .collection("users")
+    .findOne({ email });
+  if (user?.role !== "admin")
+    return res.status(403).send({ message: "Forbidden access" });
+  next();
+};
+
+const verifyManager = async (req, res, next) => {
+  const email = req.user?.email;
+  const user = await client
+    .db(process.env.DB_NAME)
+    .collection("users")
+    .findOne({ email });
+  if (user?.role !== "manager" && user?.role !== "admin")
+    return res.status(403).send({ message: "Forbidden access" });
+  next();
+};
+
+async function run() {
+  try {
+    await client.connect();
+    const database = client.db(process.env.DB_NAME);
+    const usersCollection = database.collection("users");
+    const loansCollection = database.collection("loans");
+    const applicationsCollection = database.collection("applications");
+    const paymentsCollection = database.collection("payments");
+
+    app.post("/api/auth/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "7d" });
+      res.send({ success: true, token });
+    });
+    app.post("/api/auth/logout", (req, res) => {
+      res.send({ success: true });
+    });
+
+    app.post("/api/users", async (req, res) => {
+      try {
+        const user = req.body;
+        const query = { email: user.email };
+        const existingUser = await usersCollection.findOne(query);
+        if (existingUser)
+          return res.send({ message: "User already exists", insertedId: null });
+        const newUser = {
+          ...user,
+          role: user.role || "borrower",
+          status: "active",
+          createdAt: new Date(),
+        };
+        const result = await usersCollection.insertOne(newUser);
+        res.send(result);
+      } catch (err) {
+        console.error("Error creating user:", err);
+        res.status(500).send({ message: "Failed to create user" });
+      }
+    });
+
+    app.get("/api/users", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const { search } = req.query;
+        let query = {};
