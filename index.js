@@ -243,3 +243,53 @@ async function run() {
           const result = await loansCollection.updateOne(
             { _id: new ObjectId(id) },
             updateDoc,
+          );
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ message: "Failed to update loan" });
+        }
+      },
+    );
+
+    app.delete(
+      "/api/loans/:id",
+      verifyToken,
+      verifyManager,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const result = await loansCollection.deleteOne({
+            _id: new ObjectId(id),
+          });
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ message: "Failed to delete loan" });
+        }
+      },
+    );
+
+    app.get(
+      "/api/loans/manager/:email",
+      verifyToken,
+      verifyManager,
+      async (req, res) => {
+        try {
+          const email = req.params.email;
+          const { search } = req.query;
+          let query = {
+            $or: [{ createdBy: email }, { managerEmail: email }],
+          };
+          if (search) {
+            query = {
+              $and: [
+                { $or: [{ createdBy: email }, { managerEmail: email }] },
+                {
+                  $or: [
+                    { title: { $regex: search, $options: "i" } },
+                    { category: { $regex: search, $options: "i" } },
+                  ],
+                },
+              ],
+            };
+
+
