@@ -189,3 +189,28 @@ async function run() {
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(parseInt(limit))
+          .toArray();
+        const total = await loansCollection.countDocuments(query);
+        res.send({
+          loans,
+          totalPages: Math.ceil(total / parseInt(limit)),
+          currentPage: parseInt(page),
+          total,
+        });
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch loans" });
+      }
+    });
+
+    app.get("/api/loans/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await loansCollection.findOne({ _id: new ObjectId(id) });
+        res.send(result);
+      } catch (err) {
+        res.status(400).send({ message: "Invalid loan ID" });
+      }
+    });
+
+    app.post("/api/loans", verifyToken, verifyManager, async (req, res) => {
+      try {
