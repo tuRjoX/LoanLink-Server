@@ -404,6 +404,117 @@ async function run() {
       "/api/applications/:id",
       verifyToken,
       verifyManager,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const { status } = req.body;
+          const updateDoc = {
+            $set: {
+              status,
+              ...(status === "approved" && { approvedAt: new Date() }),
+              ...(status === "rejected" && { rejectedAt: new Date() }),
+              updatedBy: req.user.email,
+              updatedAt: new Date(),
+            },
+          };
+          const result = await applicationsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            updateDoc,
+          );
+          res.send(result);
+        } catch (err) {
+          res
+            .status(500)
+            .send({ message: "Failed to update application status" });
+        }
+      },
+    );
+
+    app.patch(
+      "/api/applications/:id/payment",
+      verifyToken,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const { paymentStatus } = req.body;
+          if (paymentStatus !== "paid")
+            return res.status(400).send({ message: "Invalid payment status" });
+          const result = await applicationsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                paymentStatus,
+                applicationFeeStatus: "paid",
+                paidAt: new Date(),
+              },
+            },
+          );
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ message: "Failed to update payment status" });
+        }
+      },
+    );
+
+    app.delete("/api/applications/:id", verifyToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const application = await applicationsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!application)
+          return res.status(404).send({ message: "Application not found" });
+        if (application.userEmail !== req.user.email)
+          return res.status(403).send({ message: "Forbidden access" });
+        if (application.status !== "pending")
+          return res
+            .status(400)
+            .send({ message: "Can only cancel pending applications" });
+        const result = await applicationsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to cancel application" });
+      }
+    });
+
+    app.post("/api/create-payment-intent", verifyToken, async (req, res) => {
+      try {
+        const { applicationId } = req.body;
+        const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+        const amount = 1000;
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+          metadata: {
+            applicationId,
+            userEmail: req.user.email,
+          },
+        });
+        res.send({ clientSecret: paymentIntent.client_secret });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    app.post("/api/payments", verifyToken, async (req, res) => {
+      try {
+        const payment = {
+          ...req.body,
+          paidAt: new Date(),
+        };
+        const paymentResult = await paymentsCollection.insertOne(payment);
+        const updateResult = await applicationsCollection.updateOne(
+          { _id: new ObjectId(payment.applicationId) },
+          { $set: { applicationFeeStatus: "paid", paidAt: new Date() } },
+        );
+        res.send({ paymentResult, updateResult });
+      } catch (err) {
+        res.status(500).send({ message: "Failed to save payment" });
+      }
+    });
 
 
 
