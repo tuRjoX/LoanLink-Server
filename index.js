@@ -130,3 +130,30 @@ async function run() {
       try {
         const { search } = req.query;
         let query = {};
+        if (search) {
+          query = {
+            $or: [
+              { name: { $regex: search, $options: "i" } },
+              { email: { $regex: search, $options: "i" } },
+            ],
+          };
+        }
+        const result = await usersCollection.find(query).toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch users" });
+      }
+    });
+
+    app.get("/api/users/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.user.email)
+        return res.status(403).send({ message: "Forbidden access" });
+      const result = await usersCollection.findOne({ email });
+      res.send(result);
+    });
+
+    app.patch("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { role, status, suspendReason } = req.body;
+      const updateDoc = {
